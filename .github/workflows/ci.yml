@@ -1,25 +1,15 @@
-name: Déploiement en continu
+name: Intégration en continu de PersonWPF
 
 on:
-    push:
-      tags:
-      - 'PersonApp-V*'
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ] #Une fois la PR mergée, on revalide à nouveau pour s'assurer que le commit de merge n'aurait rien cassé
 
 jobs:
-  test:
+  build-and-test:
+    name: Run .NET Tests
     runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-      - run: dotnet restore person-wpf-demo.sln
-      - run: dotnet build person-wpf-demo.sln --no-restore --configuration Release
-      - run: dotnet test person-wpf-demo-tests/person-wpf-demo-tests.csproj --verbosity normal
-
-  publish:
-    runs-on: windows-latest
-    needs: test #Revalide que les tests passent pour déployer
 
     steps:
     - name: Checkout code
@@ -30,24 +20,17 @@ jobs:
       with:
         dotnet-version: '9.0.x'
 
-    - name: Publish WPF app
-      run: >
-        dotnet publish person-wpf-demo/person-wpf-demo.csproj
-        --configuration Release
-        --runtime win-x64
-        --self-contained true
-        --output publish
+    - name: Restore dependencies
+      run: dotnet restore person-wpf-demo.sln
 
-    - name: Generate installer with Inno Setup
-      uses: Minionguyjpro/Inno-Setup-Action@v1.2.5
-      with:
-        path: installer/setup.iss
+    - name: Build solution
+      run: dotnet build person-wpf-demo.sln --no-restore --configuration Release
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
+    - name: Run tests
+      run: dotnet test person-wpf-demo-tests\person-wpf-demo-tests.csproj --verbosity normal --logger trx --results-directory TestResults
+      
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
       with:
-        name: Release ${{ github.ref_name }}
-        tag_name: ${{ github.ref_name }}
-        files: installer/setup.exe
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: test-results
+        path: TestResults/
