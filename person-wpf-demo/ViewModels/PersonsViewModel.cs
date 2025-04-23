@@ -48,7 +48,6 @@ namespace person_wpf_demo.ViewModels
 
         private void Delete()
         {
-            Console.WriteLine("Coucou");
             _personService.Remove(SelectedPerson);
             OnPropertyChanged(nameof(Persons));
         }
